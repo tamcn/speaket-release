@@ -271,7 +271,9 @@ module.exports = require("hapi");
 
 Object.defineProperty(exports, "__esModule", { value: true });
 var user_1 = __webpack_require__(14);
-exports.apiRoutes = user_1.userRouteConfigurations.slice();
+exports.apiConfigurations = [
+    user_1.userApiConfiguration
+];
 
 
 /***/ }),
@@ -300,6 +302,7 @@ var database_1 = __webpack_require__(29);
 var share_1 = __webpack_require__(45);
 var UserController = (function () {
     function UserController() {
+        this.TOKEN_EXPIRATION_TIME = 3 * 24 * 60 * 60 * 1000;
     }
     UserController.prototype.signUp = function (request, reply) {
         var user = request.payload;
@@ -346,7 +349,7 @@ var UserController = (function () {
     };
     UserController.prototype.forgotPassword = function (request, reply) {
         var token = crypto.randomBytes(100).toString('hex');
-        var tokenExpireTime = Date.now() + 3 * 24 * 60 * 60 * 1000;
+        var tokenExpireTime = Date.now() + this.TOKEN_EXPIRATION_TIME;
         var resetLink = request.headers.origin + '/reset-password/' + token;
         var email = request.payload.email;
         share_1.userService.addPasswordResetToken(email, token, tokenExpireTime)
@@ -398,74 +401,77 @@ exports.userController = new UserController();
 Object.defineProperty(exports, "__esModule", { value: true });
 var user_validator_1 = __webpack_require__(17);
 var user_controller_1 = __webpack_require__(15);
-exports.userRouteConfigurations = [
-    {
-        method: 'POST',
-        path: '/signup',
-        handler: user_controller_1.userController.signUp,
-        config: {
-            auth: false,
-            validate: user_validator_1.signUpValidator
-        }
-    },
-    {
-        method: 'POST',
-        path: '/signin',
-        handler: user_controller_1.userController.signIn,
-        config: {
-            auth: false,
-            validate: user_validator_1.signInValidator
-        }
-    },
-    {
-        method: 'GET',
-        path: '/signout',
-        handler: user_controller_1.userController.signOut,
-        config: {
-            auth: {
-                strategy: 'cookie',
-            },
-        }
-    },
-    {
-        method: 'GET',
-        path: '/signin/status',
-        handler: user_controller_1.userController.getSignInStatus,
-        config: {
-            auth: {
-                strategy: 'cookie',
-                mode: 'try'
+exports.userApiConfiguration = {
+    controller: user_controller_1.userController,
+    routes: [
+        {
+            method: 'POST',
+            path: '/signup',
+            handler: user_controller_1.userController.signUp,
+            config: {
+                auth: false,
+                validate: user_validator_1.signUpValidator
+            }
+        },
+        {
+            method: 'POST',
+            path: '/signin',
+            handler: user_controller_1.userController.signIn,
+            config: {
+                auth: false,
+                validate: user_validator_1.signInValidator
+            }
+        },
+        {
+            method: 'GET',
+            path: '/signout',
+            handler: user_controller_1.userController.signOut,
+            config: {
+                auth: {
+                    strategy: 'cookie',
+                },
+            }
+        },
+        {
+            method: 'GET',
+            path: '/signin/status',
+            handler: user_controller_1.userController.getSignInStatus,
+            config: {
+                auth: {
+                    strategy: 'cookie',
+                    mode: 'try'
+                }
+            }
+        },
+        {
+            method: 'POST',
+            path: '/forgot-password',
+            handler: user_controller_1.userController.forgotPassword,
+            config: {
+                auth: false,
+                validate: user_validator_1.forgotPasswordValidator
+            }
+        },
+        {
+            method: 'POST',
+            path: '/reset-password',
+            handler: user_controller_1.userController.resetPassword,
+            config: {
+                auth: false,
+                validate: user_validator_1.resetPasswordValidator
+            }
+        },
+        {
+            method: 'POST',
+            path: '/token-status',
+            handler: user_controller_1.userController.getTokenStatus,
+            config: {
+                auth: false,
+                validate: user_validator_1.getTokenStatusValidator
             }
         }
-    },
-    {
-        method: 'POST',
-        path: '/forgot-password',
-        handler: user_controller_1.userController.forgotPassword,
-        config: {
-            auth: false,
-            validate: user_validator_1.forgotPasswordValidator
-        }
-    },
-    {
-        method: 'POST',
-        path: '/reset-password',
-        handler: user_controller_1.userController.resetPassword,
-        config: {
-            auth: false,
-            validate: user_validator_1.resetPasswordValidator
-        }
-    },
-    {
-        method: 'POST',
-        path: '/token-status',
-        handler: user_controller_1.userController.getTokenStatus,
-        config: {
-            auth: false,
-            validate: user_validator_1.getTokenStatusValidator
-        }
-    }
-];
+    ]
+};
 
 
 /***/ }),
@@ -1259,11 +1265,14 @@ var fileRouteConfigurations = [
         }
     }
 ];
-var routeConfigurations = fileRouteConfigurations.concat(api_1.apiRoutes);
 function registerRoutes() {
     var server = this;
-    routeConfigurations.forEach(function (routeConfiguration) {
-        server.route(routeConfiguration);
+    fileRouteConfigurations.forEach(function (configuration) {
+        server.route(configuration);
+    });
+    api_1.apiConfigurations.forEach(function (configuration) {
+        server.bind(configuration.controller);
+        server.route(configuration.routes);
     });
 }
 exports.registerRoutes = registerRoutes;
